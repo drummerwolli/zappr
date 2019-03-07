@@ -1,10 +1,39 @@
 # Local Development
 
-This guides is for developers who want to run Zappr on their development machine.
+This guide is for developers who want to run Zappr on their development machine.
 In the end you will have three different processes running:
 - Your local PostgreSQL database
 - Your local Zappr application
-- a VPN tunnel (e.g.: localtunnel) exposing your localhost  
+- a VPN tunnel (e.g.: localtunnel) exposing your localhost
+
+## pre-requisites
+
+- node
+- npm
+- docker
+- docker-compose
+
+## tl;dr
+replace the first three lines with your data. then execute all line by line.
+
+```shell
+export GITHUB_CLIENT_ID=<your-client-id>
+export GITHUB_CLIENT_SECRET=<your-client-secret>
+export VPN_TUNNEL_NAME=<your-app-name>
+
+export HOST_ADDR=https://$VPN_TUNNEL_NAME.localtunnel.me
+
+docker-compose up -d
+
+./init_db.sh
+
+npm i -g localtunnel
+lt -s $VPN_TUNNEL_NAME -p 3000
+```
+
+## Explanation
+
+### Preconditions
 
 **Before you start** you need to register an OAuth application in your GitHub account under `Settings/ Developer Settings/ OAuth Apps`.   
 If you need help in registering your application follow these [instructions](https://auth0.com/docs/connections/social/github).
@@ -16,134 +45,74 @@ You will need
 from your registered application later.  
 In case you use localtunnel as your VPN, set the `Authorization callback URL` in your GitHub settings to `https://<your-app-name>.localtunnel.me`.
 
-## Database Setup
-Zappr needs a database during development and testing. For this reason there's a `docker-compose.yaml`
-for your convenience, with which you can either start a database for development (`postgres-dev`) **or** testing: (`postgres-test`).  
-Since dev and test database share the same port, you should either change the port of one of the databases in the `docker-compose.yaml`.  
-Example:
-```yaml
-  ...
- postgres-dev:
-    image: "postgres:9.4"
-    ports:
-      - "5432:5432"
-    container_name: zappr-postgres-dev
-  postgres-test:
-    image: "postgres:9.4"
-    ports:
-      - "5433:5432" # note the different ports in this line
-    container_name: zappr-postgres-test
-  ...
-```
-Or comment out in `init_db.sh` the database you currently don't need.  
-Example:
-~~~ shell
-echo "Set up dev database"
-docker exec -it zappr-postgres-dev sh -c "exec psql -c 'create database zappr;' -U postgres"
-docker exec -it zappr-postgres-dev sh -c "exec psql -c 'create schema zappr_data;' -U postgres zappr"
-docker exec -it zappr-postgres-dev sh -c "exec psql -c 'create schema zappr_meta;' -U postgres zappr"
+### Database Setup
 
-# echo "Set up test database"
-# docker exec -it zappr-postgres-test sh -c "exec psql -c 'create database zappr;' -U postgres"
-# docker exec -it zappr-postgres-test sh -c "exec psql -c 'create schema zappr_data;' -U postgres zappr"
-# docker exec -it zappr-postgres-test sh -c "exec psql -c 'create schema zappr_meta;' -U postgres zappr"
-~~~
-If you need both databases, you can run `init_db.sh` after you uncommented your changes.  
-
-Make sure your docker machine host is running:
-
-~~~ shell
- docker-machine start
-~~~  
+Zappr needs a database during development. For this reason there's a `docker-compose.yaml`
+for your convenience, with which you can start a database for development. 
 
 Start database and schemas:
 ~~~ shell
-export DM_IP="$(docker-machine ip)"  
+# Starts the postgres docker container for development purposes
+docker-compose up -d postgres-dev
 
-# Starts the postgres docker container for development & test purposes
-# run either
-docker-compose up postgres-dev
-# or
-docker-compose up postgres-test
+# Inspect if the DB is up and running
+docker-compose logs
 
-# creates database and schemas, only needed first time
-# run database command in additional terminal session
+# When the DB is up and running create a database and schemas. 
+# Only needed first time after starting up DB
 ./init_db.sh
-
-
 ~~~
-To get your docker-machine ip you can also run `docker-machine ip` in the shell and copy the address.  
 
-## Zappr Setup
+### Env Setup
 
 To get your `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` copy it from your Github `Settings/ Developer Settings/ OAuth Apps` or
 create them new following these [instructions](https://auth0.com/docs/connections/social/github).
-Export your [Github credentials](https://github.com/settings/applications) and docker-machine IP:
+Export your [Github credentials](https://github.com/settings/applications):
 
 ~~~ shell
-export DB_HOST="$(docker-machine ip)"
 export GITHUB_CLIENT_ID=<your-client-id>
 export GITHUB_CLIENT_SECRET=<your-client-secret>
 ~~~
 
 ---
 
-Start Zappr with any of the following alternatives
+### NPM Setup
 
-### Bash scripts
-There are 3 bash scripts ready for [*nix environments](https://en.wikipedia.org/wiki/Unix-like) to start zappr locally.
-Make sure, you replace place holders in the bash scripts, with actual values. The place holders are marked with **<** & **>**.
+install now all dependencies for npm and build the project:
 
-You need **3** separate Terminals to start zappr using this approach.
-- In Terminal 1
-~~~ bash
-$ ./run-zappr-local-terminal01.sh
-~~~
-The script starts a docker machine and a developer database.
-Stop the script is blocking - stop it with CTRL-C.
-
-- In Terminal 2
-~~~ bash
-$ ./run-zappr-local-terminal02.sh
-~~~
-The script populates database data and runs the starts zappr using NPM.
-Stop the script is blocking - stop it with CTRL-C.
-
-- In Terminal 3
-~~~ bash
-$ ./run-zappr-local-terminal03.sh
-~~~
-The script sets up the tunnel using _localtunnel.me_ .
-Stop the script is blocking - stop it with CTRL-C.
-
-### NPM
- - Precondition VPN Setup
-    Install and run localtunnel to expose your localhost in a separate terminal window
-    ~~~ shell
-    npm i -g localtunnel
-    lt -s <your-app-name> -p 3000
-    ~~~
-    Double check that your Authorization callback URL is set to `https://<your-app-name>.localtunnel.me` in the GitHub settings.
-
-~~~ shell
+```shell
 npm install
 npm run build
-GITHUB_CLIENT_ID=<your-client-id>
-GITHUB_CLIENT_SECRET=<your-client-secret>
-HOST_ADDR=https://<your-app-name>.localtunnel.me/
-npm run all
 
-# you may omit GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET if exported to regarding shell environment variables earlier
+```
+
+### Localtunel Setup
+
+Install and run localtunnel to expose your localhost in a separate terminal window
+
+~~~ shell
+npm i -g localtunnel
+lt -s <your-app-name> -p 3000
+~~~
+
+Double check that your Authorization callback URL is set to `https://<your-app-name>.localtunnel.me` in the GitHub settings.
+
+### Run Zappr
+
+You can now run Zappr. you need to pass one more env var, to specify where the VPN tunnel can be reached. 
+
+~~~ shell
+export HOST_ADDR=https://<your-app-name>.localtunnel.me
+npm run all
 ~~~
 
 Go to `https://<your-app-name>.localtunnel.me` and do things :)
 
-### Docker compose
+## Docker compose
 
 Currently, there is an issue with using just docker-compose. Generally, once you have configured your shell environment with all the necessary `GLOBALS` described before, you should just run `docker-compose up zappr`. This will run the zappr application and
 
   ~~~ shell
-  export DM_IP=$(docker-machine ip)
   docker-compose up zappr
   ~~~
 
@@ -153,7 +122,7 @@ You should be able now to access your local Zappr installation at `http://localh
   to the package.json script.
   However we do not advise it since you could end up pushing your ID and Secret to GitHub.
 
-## Debug Client and Server:
+# Debug Client and Server:
 
 ```
 npm run build
